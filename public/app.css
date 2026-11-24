@@ -179,6 +179,16 @@ select.input{appearance:none;-webkit-appearance:none}
 .t5{background:radial-gradient(circle at 35% 30%,#fff0e0,#f6be8a);color:#6a3410;box-shadow:0 18px 40px rgba(200,110,50,.35)}
 .people-row{display:flex;align-items:center;margin-top:12px}
 .people-row .avatar{margin-left:-8px;border:2px solid rgba(255,255,255,.7)}
+.people-btn{color:#fff;padding:2px 0;transition:transform .3s var(--spring)}
+.people-btn:active{transform:scale(.94)}
+.people-btn .more{direction:ltr;unicode-bidi:isolate;display:grid;place-items:center;margin-right:10px;font-size:14px;font-weight:600;opacity:.9}
+.people-btn .more .ico{width:20px;height:20px}
+.iacts{display:flex;gap:34px;margin-top:20px}
+.ia{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;color:#fff;min-width:48px;transition:transform .3s var(--spring),opacity .2s}
+.ia:active{transform:scale(.9);opacity:.75}
+.ia .ico{width:32px;height:32px;stroke-width:1.6}
+.ia b{font-size:13px;font-weight:600;opacity:.92;white-space:nowrap}
+.ia sup{position:absolute;top:-8px;left:-6px;font-size:13px;font-weight:700;line-height:1}
 
 /* ---------- sheets & layers ---------- */
 #layer{position:fixed;inset:0;z-index:20;pointer-events:none}

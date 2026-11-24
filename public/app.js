@@ -309,12 +309,11 @@ function viewVacation(d) {
     <div class="vhead">
       <h1 class="title">${esc(v.name)}</h1>
       <p class="sub">${esc([v.countries.join(', '), dateRange(v.start, v.end)].filter(Boolean).join(' · '))}${v.start && v.end ? ` · ${daysBetween(v.start, v.end)} לילות` : ''}</p>
-      ${v.group ? `<div class="people-row" style="padding-right:8px">${joined.slice(0, 6).map(m => avatar(m, 'sm')).join('')}</div>` : ''}
+      <button class="people-row people-btn" data-act="go" data-h="#/v/${v.id}/people" aria-label="${v.group ? 'החברים בחופשה' : 'הזמנת חברים'}">${(v.group ? joined.slice(0, 5) : [S.me]).map(m => avatar(m, 'sm')).join('')}${v.group && joined.length > 5 ? `<span class="more">+${joined.length - 5}</span>` : ''}${v.group ? '' : `<span class="more">${icon('plus')}</span>`}</button>
     </div>
-    <div class="actions">
-      <button class="act" data-act="go" data-h="#/v/${v.id}/costs">${icon('coins')}מחירים${d.totals.all ? ` <em>${fmtMoney(d.totals.all)}</em>` : ''}</button>
-      <button class="act" data-act="go" data-h="#/v/${v.id}/notes">${icon('notes')}הערות${openNotes ? ` <em>${openNotes}</em>` : ''}</button>
-      <button class="act" data-act="go" data-h="#/v/${v.id}/people">${icon(v.group ? 'users' : 'userplus')}${v.group ? 'חברים' : 'הזמנת חברים'}</button>
+    <div class="iacts">
+      <button class="ia" data-act="go" data-h="#/v/${v.id}/costs">${icon('coins')}<b>מחירים</b></button>
+      <button class="ia" data-act="go" data-h="#/v/${v.id}/notes">${openNotes ? `<sup>${openNotes}</sup>` : ''}${icon('notes')}<b>הערות</b></button>
     </div>
     ${v.group ? `<div class="seg dark" data-seg="filter" style="margin-top:16px"><span class="knob"></span>
       <button class="${S.filter === 'all' ? 'on' : ''}" data-act="filter" data-v="all">הכל</button>
@@ -472,11 +471,11 @@ async function viewMe() {
   return `<section class="page">
     <div class="top"><button class="back" data-act="home">${icon('back')}החופשות שלי</button></div>
     <div style="display:flex;align-items:center;gap:14px;margin-top:6px">${avatar(me)}<div><h1 class="title" style="font-size:30px">${esc(me.name)}</h1><p class="sub" dir="ltr" style="text-align:right">${esc(me.email)}</p></div></div>
-    <div class="actions" style="margin-top:22px">
-      <button class="act" data-act="go" data-h="#/friends">${icon('users')}חברים${S.friends?.incoming.length ? ` <em>${S.friends.incoming.length}</em>` : ''}</button>
-      <button class="act" data-act="me-edit">${icon('edit')}שם וצבע</button>
-      <button class="act" data-act="me-pass">${icon('lock')}החלפת סיסמה</button>
-      <button class="act" data-act="logout">${icon('logout')}יציאה</button>
+    <div class="iacts" style="margin-top:26px">
+      <button class="ia" data-act="go" data-h="#/friends">${S.friends?.incoming.length ? `<sup>${S.friends.incoming.length}</sup>` : ''}${icon('users')}<b>חברים</b></button>
+      <button class="ia" data-act="me-edit">${icon('edit')}<b>שם וצבע</b></button>
+      <button class="ia" data-act="me-pass">${icon('lock')}<b>סיסמה</b></button>
+      <button class="ia" data-act="logout">${icon('logout')}<b>יציאה</b></button>
     </div>
     ${admin}
   </section>`;
