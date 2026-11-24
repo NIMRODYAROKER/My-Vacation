@@ -337,7 +337,6 @@ function viewTopic(d, tid) {
   const docNames = new Set(items.map(docName));
   const loose = costs.filter(c => !docNames.has(c.label || ''));
   const usedCost = new Set();
-  const free = freeDocNames(items, costs, docName);
   const pill = c => `<button class="price-pill" data-act="cost" data-id="${c.id}"><b>${fmtMoney(c.amount, c.currency)}</b>${c.currency !== 'ILS' && c.ils !== null ? `<small>≈ ${fmtMoney(Math.round(c.ils))}</small>` : ''}</button>`;
   const docRow = (it, k) => {
     const mineCosts = costs.filter(c => (c.label || '') === docName(it) && !usedCost.has(c.id));
@@ -365,7 +364,6 @@ function viewTopic(d, tid) {
         <button class="act plain" data-act="t-edit" data-id="${t.id}">${icon('edit')}עריכה</button>
       </div>
       ${items.length || loose.length ? `<div class="list">${items.map(docRow).join('')}${loose.map(costRow).join('')}</div>` : `<p class="hint">עוד אין כאן כלום. מעלים צילום של כרטיס, קובץ PDF, או מדביקים מייל והודעה.</p>`}
-      <button class="btn block price-cta${free.length ? '' : ' off'}" data-act="${free.length ? 'go' : 'price-ask'}" data-why="${items.length ? 'all' : 'none'}" data-h="#/v/${v.id}/t/${t.id}/cost">${icon('coins')}הוספת מחיר</button>
     </section>
   </div>`;
 }
@@ -399,7 +397,7 @@ function viewCosts(d) {
     ${rows.length ? rows.map(r => `<div class="crow ${S.open[r.t.id] ? 'open' : ''}" data-id="${r.t.id}">
         <button data-act="crow" data-id="${r.t.id}"><span class="sw" style="background:${TOPIC_COLORS[r.i % 6]}"></span><span class="n">${esc(r.t.name)}</span><span class="p">${total ? Math.round(r.sum / total * 100) : 0}%</span><span class="v">${fmtMoney(Math.round(r.sum))}</span></button>
         <div class="inner"><div>${r.list.map(c => `<div class="line"><span>${esc(c.label || 'מחיר')}${!c.mine ? ' · ' + esc(c.by) : ''}</span><span dir="ltr">${fmtMoney(c.amount, c.currency)}</span></div>`).join('')}</div></div>
-      </div>`).join('') : `<div class="empty"><p>עוד לא נרשמו מחירים. נכנסים לנושא (טיסות, מגורים…) ולוחצים "הוספת מחיר".</p></div>`}
+      </div>`).join('') : `<div class="empty"><p>עוד לא נרשמו מחירים. מוסיפים מחיר כשמוסיפים מסמך לנושא (טיסות, מגורים…), או מתוך מסמך קיים.</p></div>`}
     ${d.costs.some(c => c.currency !== 'ILS') ? `<p class="rate-note">מחירים במטבע זר מחושבים לשקלים לפי השער העדכני${d.totals.missingRate ? ' (לחלק מהמטבעות אין עכשיו שער)' : ''}</p>` : ''}
     <span data-mount="seg"></span>
   </section>`;
@@ -555,6 +553,10 @@ function openAdd(d, topicId, kind) {
           <input type="file" name="file" accept="${kind === 'image' ? 'image/*' : 'application/pdf,image/*'}" class="sr" required></label>` : ''}
       <label class="field"><span>כותרת</span><input class="input" name="title" maxlength="120" placeholder="${kind === 'email' ? 'למשל: אישור הזמנה – אל על' : kind === 'message' ? 'למשל: פרטי המעבורת' : 'למשל: כרטיס טיסה הלוך'}"></label>
       ${!isFile ? `<label class="field"><span>${kind === 'email' ? 'מעתיקים את המייל ומדביקים כאן' : 'מעתיקים את ההודעה ומדביקים כאן'}</span><textarea class="input" name="body" maxlength="20000" required></textarea></label>` : ''}
+      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:10px">
+        <label class="field"><span>מחיר (לא חובה)</span><input class="input" name="amount" inputmode="decimal" dir="ltr" placeholder="0"></label>
+        <label class="field"><span>מטבע</span><select class="input" name="currency">${d.currencies.map(c => `<option value="${c}" ${c === guessCurrency(d) ? 'selected' : ''}>${CUR_NAMES[c] || c} (${c})</option>`).join('')}</select></label>
+      </div>
       ${sharedToggle(d, false)}
       <p class="err" data-err></p>
       <button class="btn block" style="margin-top:6px">שמירה</button>
@@ -572,8 +574,12 @@ function openAdd(d, topicId, kind) {
       e.preventDefault();
       const form = e.target, err = s.querySelector('[data-err]'), btn = form.querySelector('.btn:last-child');
       err.textContent = '';
+      const amtTxt = form.amount.value.replace(/,/g, '').trim();
+      const amount = Number(amtTxt);
+      if (amtTxt && (!isFinite(amount) || amount < 0)) { err.textContent = 'המחיר צריך להיות מספר'; return; }
       try {
         btn.disabled = true; btn.textContent = 'שומר…';
+        let res;
         if (isFile) {
           let f = fi.files[0];
           if (!f) throw new Error('צריך לבחור קובץ');
@@ -581,11 +587,18 @@ function openAdd(d, topicId, kind) {
           if (f.size > 10 * 1024 * 1024) throw new Error('הקובץ גדול מדי (עד 10MB)');
           const fd = new FormData();
           fd.set('topicId', topicId); fd.set('kind', kind); fd.set('title', form.title.value); fd.set('shared', isShared() ? '1' : '0'); fd.set('file', f, f.name);
-          await api(`/vacations/${v.id}/items`, fd);
+          res = await api(`/vacations/${v.id}/items`, fd);
         } else {
-          await api(`/vacations/${v.id}/items`, { topicId, kind, title: form.title.value, body: form.body.value, shared: isShared() });
+          res = await api(`/vacations/${v.id}/items`, { topicId, kind, title: form.title.value, body: form.body.value, shared: isShared() });
         }
-        close(); await refreshVac(v.id); render(); toast('נשמר');
+        await refreshVac(v.id);
+        if (amtTxt) {
+          const it = (curVac().items || []).find(x => x.id === res.id);
+          const label = it ? (it.title || it.fileName || kindName[it.kind]).slice(0, 80) : '';
+          try { await api(`/vacations/${v.id}/costs`, { topicId, label, amount, currency: form.currency.value, shared: isShared() }); await refreshVac(v.id); }
+          catch (ex) { close(); render(); toast('המסמך נשמר, המחיר לא: ' + ex.message); return; }
+        }
+        close(); render(); toast('נשמר');
       } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = 'שמירה'; }
     };
   });
@@ -608,7 +621,8 @@ function viewCostPage(d, tid, costId) {
   const tCosts = visible(d, d.costs).filter(x => x.topicId === tid && (!cost || x.id !== cost.id));
   const names = freeDocNames(tItems, tCosts, it => it.title || it.fileName || kindName[it.kind]);
   if (cost && cost.label && !names.includes(cost.label)) names.unshift(cost.label);
-  const sel = cost ? (cost.label || '') : (names[0] || '');
+  const want = S.costLabel; S.costLabel = null;
+  const sel = cost ? (cost.label || '') : (want && names.includes(want) ? want : (names[0] || ''));
   return `<div class="topic-page">
     <div class="topic-hero">
       <div style="flex:1"><button class="back" data-act="go" data-h="#/v/${v.id}/t/${t.id}" style="color:#fff">${icon('back')}${esc(t.name)}</button>
@@ -681,12 +695,17 @@ function openItem(d, it) {
   const content = it.kind === 'image' ? `<img class="viewer-img" src="${url}" alt="">`
     : it.kind === 'file' ? `<a class="btn soft block" style="margin-top:16px" href="${url}" target="_blank" rel="noopener">${icon('open')}פתיחת הקובץ</a>`
       : `<div class="paper-note">${esc(it.body)}</div>`;
+  const dn = it2 => it2.title || it2.fileName || kindName[it2.kind];
+  const tItems = visible(d, d.items).filter(x => x.topicId === it.topicId);
+  const tCosts = visible(d, d.costs).filter(x => x.topicId === it.topicId);
+  const noPrice = freeDocNames(tItems, tCosts, dn).includes(dn(it));
   openSheet(`<div class="row" style="display:flex;gap:12px;align-items:center"><span class="blob ${it.kind}">${icon(kindIcon[it.kind])}</span><div style="flex:1;min-width:0"><h2 style="font-size:20px;overflow-wrap:anywhere">${esc(it.title || it.fileName || kindName[it.kind])}</h2><p class="muted">${kindName[it.kind]} · ${ago(it.created)}${!it.mine ? ' · ' + esc(it.by) : ''}</p></div></div>
     ${content}
     ${it.mine && v.group ? sharedToggle(d, it.shared) : ''}
     <div class="vactions">
       <button class="btn" data-share>${icon('share')}שליחה</button>
       ${it.kind !== 'file' && it.kind !== 'image' ? `<button class="btn soft" data-copy>${icon('copy')}העתקה</button>` : `<a class="btn soft" href="${url}?dl=1" download>${icon('download')}הורדה</a>`}
+      ${noPrice ? `<button class="btn soft" data-price>${icon('coins')}מחיר</button>` : ''}
       ${it.mine ? `<button class="btn soft" data-edit>${icon('edit')}שם</button><button class="btn danger" data-del>${icon('trash')}מחיקה</button>` : ''}
     </div>`, (s, close) => {
     const t = s.querySelector('[data-toggle]');
@@ -704,6 +723,8 @@ function openItem(d, it) {
       if (!(await confirmSheet('למחוק?', 'המסמך יימחק לגמרי.', 'מחיקה'))) return;
       try { await api(`/items/${it.id}/delete`, {}); await refreshVac(v.id); render(); toast('נמחק'); } catch (ex) { toast(ex.message); }
     };
+    const pr = s.querySelector('[data-price]');
+    if (pr) pr.onclick = () => { S.costLabel = dn(it); close(); go(`#/v/${v.id}/t/${it.topicId}/cost`); };
     const ed = s.querySelector('[data-edit]');
     if (ed) ed.onclick = () => openText('שם המסמך', it.title || '', 120, async (val) => { await api(`/items/${it.id}/update`, { title: val }); await refreshVac(v.id); render(); });
   });
