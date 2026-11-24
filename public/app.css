@@ -97,7 +97,7 @@ body[data-scene=day] .glint,body[data-scene=night] .glint{opacity:0}
 .btn.soft{background:#f6e9ee;color:var(--paper-ink);box-shadow:none}
 .btn.danger{background:#fde4e6;color:#a3243e;box-shadow:none}
 .btn[disabled]{opacity:.55}
-.price-cta[disabled]{opacity:.4;box-shadow:none;filter:saturate(.4);pointer-events:none}
+.price-cta.off{opacity:.4;box-shadow:none;filter:saturate(.4)}
 .link{color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:4px;padding:8px}
 
 /* ---------- forms ---------- */

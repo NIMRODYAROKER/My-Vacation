@@ -364,7 +364,7 @@ function viewTopic(d, tid) {
         <button class="act plain" data-act="t-edit" data-id="${t.id}">${icon('edit')}עריכה</button>
       </div>
       ${items.length || loose.length ? `<div class="list">${items.map(docRow).join('')}${loose.map(costRow).join('')}</div>` : `<p class="hint">עוד אין כאן כלום. מעלים צילום של כרטיס, קובץ PDF, או מדביקים מייל והודעה.</p>`}
-      <button class="btn block price-cta" data-act="go"${items.length ? '' : ' disabled'} data-h="#/v/${v.id}/t/${t.id}/cost">${icon('coins')}הוספת מחיר</button>
+      <button class="btn block price-cta${items.length ? '' : ' off'}" data-act="${items.length ? 'go' : 'price-ask'}" data-h="#/v/${v.id}/t/${t.id}/cost">${icon('coins')}הוספת מחיר</button>
     </section>
   </div>`;
 }
@@ -883,6 +883,7 @@ const actions = {
   't-edit': (el) => { const d = curVac(); openTopicEdit(d, d.topics.find(t => t.id === el.dataset.id)); },
   'v-edit': () => openVacEdit(curVac()),
   'add-menu': () => openAddMenu(curVac(), location.hash.split('/')[4]),
+  'price-ask': async (el) => { if (await confirmSheet('עוד אין מסמכים בנושא', 'אפשר להוסיף בכל זאת מחיר כללי, בלי מסמך.', 'הוספת מחיר כללי', false)) go(el.dataset.h); },
   item: (el) => { const d = curVac(); openItem(d, d.items.find(i => i.id === el.dataset.id)); },
   cost: (el) => {
     const d = curVac(); const c = d.costs.find(i => i.id === el.dataset.id);
