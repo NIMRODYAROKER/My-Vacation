@@ -99,7 +99,7 @@ async function api(path, body, opts = {}) {
 }
 
 // ---------- state ----------
-const S = { me: null, list: null, vac: {}, friends: null, tab: 'mine', filter: 'all', costView: 'all', wiz: null, open: {}, mustChange: false };
+const S = { me: null, list: null, vac: {}, friends: null, tab: 'mine', filter: 'all', costView: 'mine', wiz: null, open: {}, mustChange: false };
 
 // ---------- router & transitions ----------
 let current = '';
@@ -346,12 +346,14 @@ function viewTopic(d, tid) {
   const pill = c => c.shared && c.split > 1
     ? `<button class="price-pill split" data-act="cost" data-id="${c.id}"><span><small>לכולם</small><b dir="ltr">${fmtMoney(c.amount, c.currency)}</b></span><i></i><span><small>ליחיד</small><b dir="ltr">${fmtMoney(Math.round(c.amount / c.split * 100) / 100, c.currency)}</b></span></button>`
     : `<button class="price-pill" data-act="cost" data-id="${c.id}"><b>${fmtMoney(c.amount, c.currency)}</b>${c.currency !== 'ILS' && c.ils !== null ? `<small>≈ ${fmtMoney(Math.round(c.ils))}</small>` : ''}</button>`;
+  const docCost = it => costs.find(c => c.itemId === it.id) || costs.find(c => !c.itemId && (c.label || '') === docName(it));
+  const tagPrice = c => c ? `<span class="tile-price" dir="ltr">${fmtMoney(c.amount, c.currency)}${c.shared && c.split > 1 ? `<small>ליחיד ${fmtMoney(Math.round(c.amount / c.split * 100) / 100, c.currency)}</small>` : ''}</span>` : '';
   const docRow = (it, k) => `<button class="tile" style="animation-delay:${k * 45}ms" data-act="item" data-id="${it.id}">
       <span class="tile-t">${esc(docName(it))}</span>
-      <span class="tile-p ${it.kind}">${it.kind === 'image' ? `<img src="/api/items/${it.id}/file" alt="" loading="lazy">` : icon(kindIcon[it.kind])}</span></button>`;
+      <span class="tile-p ${it.kind}">${it.kind === 'image' ? `<img src="/api/items/${it.id}/file" alt="" loading="lazy">` : icon(kindIcon[it.kind])}${tagPrice(docCost(it))}</span></button>`;
   const costRow = (c, k) => `<button class="tile" style="animation-delay:${(items.length + k) * 45}ms" data-act="cost" data-id="${c.id}">
       <span class="tile-t">${esc(c.label || 'מחיר')}</span>
-      <span class="tile-p cost">${icon('coins')}</span></button>`;
+      <span class="tile-p cost">${icon('coins')}${tagPrice(c)}</span></button>`;
   return `<div class="topic-page">
     <div class="topic-hero">
       <div style="flex:1"><button class="back" data-act="go" data-h="#/v/${v.id}" style="color:#fff">${icon('back')}${esc(v.name)}</button>
@@ -371,9 +373,9 @@ function viewTopic(d, tid) {
 
 function viewCosts(d) {
   const v = d.vacation;
-  const mine = v.group && S.costView === 'mine';
-  const costs = d.costs.filter(c => !mine || c.mine || c.shared);
-  const part = c => mine && c.shared ? (c.ils || 0) / c.split : (c.ils || 0);
+  const mine = v.group && S.costView !== 'shared', shared = v.group && !mine;
+  const costs = d.costs.filter(c => shared ? c.shared : (c.mine || c.shared));
+  const part = c => mine && c.shared ? (c.ils || 0) / (c.split || 1) : (c.ils || 0);
   const rows = d.topics.map((t, i) => {
     const list = costs.filter(c => c.topicId === t.id);
     return { t, i, list, sum: list.reduce((s, c) => s + part(c), 0) };
@@ -391,7 +393,7 @@ function viewCosts(d) {
   return `<section class="page">
     <div class="top"><button class="back" data-act="go" data-h="#/v/${v.id}">${icon('back')}${esc(v.name)}</button></div>
     <h1 class="title">כמה זה עלה</h1>
-    ${v.group ? `<div class="seg dark" data-seg="cost" style="margin-top:16px"><span class="knob"></span><button class="${!mine ? 'on' : ''}" data-act="costview" data-v="all">כל מה שאני רואה</button><button class="${mine ? 'on' : ''}" data-act="costview" data-v="mine">הכסף שלי</button></div>` : ''}
+    ${v.group ? `<div class="seg dark" data-seg="cost" style="margin-top:16px"><span class="knob"></span><button class="${mine ? 'on' : ''}" data-act="costview" data-v="mine">הכסף שלי</button><button class="${shared ? 'on' : ''}" data-act="costview" data-v="shared">כסף משותף</button></div>` : ''}
     <div class="donut" data-mount="donut">
       <svg viewBox="0 0 300 300"><circle cx="150" cy="150" r="110" stroke="rgba(255,255,255,.13)"/>${arcs}</svg>
       <div class="center"><span>סה"כ</span><b>${fmtMoney(Math.round(total))}</b></div>
@@ -399,10 +401,11 @@ function viewCosts(d) {
     ${rows.length ? rows.map(r => `<div class="crow ${S.open[r.t.id] ? 'open' : ''}" data-id="${r.t.id}">
         <button data-act="crow" data-id="${r.t.id}"><span class="sw" style="background:${TOPIC_COLORS[r.i % 6]}"></span><span class="n">${esc(r.t.name)}</span><span class="p">${total ? Math.round(r.sum / total * 100) : 0}%</span><span class="v">${fmtMoney(Math.round(r.sum))}</span></button>
         <div class="inner"><div>${r.list.map(c => {
-    const sp = c.shared && c.split > 1, each = Math.round(c.amount / c.split * 100) / 100;
-    return `<div class="line"><span>${esc(c.label || 'מחיר')}${sp ? ' · משותף לכולם' : ''}${!c.mine ? ' · ' + esc(c.by) : ''}</span><span>${sp ? (mine ? `<span dir="ltr">${fmtMoney(each, c.currency)}</span> <small>מתוך <span dir="ltr">${fmtMoney(c.amount, c.currency)}</span></small>` : `<span dir="ltr">${fmtMoney(c.amount, c.currency)}</span> <small>ליחיד <span dir="ltr">${fmtMoney(each, c.currency)}</span></small>`) : `<span dir="ltr">${fmtMoney(c.amount, c.currency)}</span>`}</span></div>`;
+    const sp = c.shared && c.split > 1, each = Math.round(c.amount / (c.split || 1) * 100) / 100;
+    if (mine && c.shared) return `<div class="line share-note"><span>${esc(c.label || 'מחיר')}<small>החלק שלך מהמשותף${sp ? ` · מתחלק ב-${c.split}` : ''}</small></span><span><span dir="ltr">${fmtMoney(each, c.currency)}</span> <small>מתוך <span dir="ltr">${fmtMoney(c.amount, c.currency)}</span></small></span></div>`;
+    return `<div class="line"><span>${esc(c.label || 'מחיר')}${!c.mine ? ' · ' + esc(c.by) : ''}</span><span><span dir="ltr">${fmtMoney(c.amount, c.currency)}</span>${shared && sp ? ` <small>ליחיד <span dir="ltr">${fmtMoney(each, c.currency)}</span></small>` : ''}</span></div>`;
   }).join('')}</div></div>
-      </div>`).join('') : `<div class="empty"><p>עוד לא נרשמו מחירים. מוסיפים מחיר כשמוסיפים מסמך לנושא (טיסות, מגורים…), או מתוך מסמך קיים.</p></div>`}
+      </div>`).join('') : `<div class="empty"><p>${shared ? 'עוד אין מחירים משותפים. מחיר של מסמך ששותף עם כולם יופיע כאן.' : 'עוד לא נרשמו מחירים. מוסיפים מחיר כשמוסיפים מסמך לנושא (טיסות, מגורים…), או מתוך מסמך קיים.'}</p></div>`}
     ${d.costs.some(c => c.currency !== 'ILS') ? `<p class="rate-note">מחירים במטבע זר מחושבים לשקלים לפי השער העדכני${d.totals.missingRate ? ' (לחלק מהמטבעות אין עכשיו שער)' : ''}</p>` : ''}
     <span data-mount="seg"></span>
   </section>`;
