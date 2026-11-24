@@ -181,7 +181,8 @@ async function refreshVac(id) { await loadVac(id); S.list = null; }
 // ---------- views: auth ----------
 function viewAuth(signup) {
   return `<section class="page full auth">
-    <div class="brand"><img class="logo" src="/icons/icon-192.png" alt=""><h1>My Vacation</h1><p>כל החופשה במקום אחד</p></div>
+    <svg class="sky-plane" viewBox="0 0 400 120" aria-hidden="true"><path class="trail" d="M10 104 Q150 10 300 38"/><g transform="translate(345 50) rotate(14) scale(1.9) translate(-24 -24)"><path d="M44 22l-14-2-9-14h-4l5 14-10 1-4-5H5l3 8-3 8h3l4-5 10 1-5 14h4l9-14 14-2c2-.4 2-3.6 0-4z"/></g></svg>
+    <div class="brand"><h1>My Vacation</h1><p>כל החופשה במקום אחד</p></div>
     <form class="auth-card glass" data-form="${signup ? 'signup' : 'login'}" novalidate>
       ${signup ? `<label class="field"><span>שם</span><input class="input" name="name" autocomplete="name" maxlength="40" required></label>` : ''}
       <label class="field"><span>מייל</span><input class="input" name="email" type="email" inputmode="email" autocomplete="email" dir="ltr" required></label>
