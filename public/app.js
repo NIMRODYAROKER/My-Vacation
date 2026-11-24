@@ -196,8 +196,8 @@ function viewAuth(signup) {
 }
 
 // ---------- views: home ----------
-async function viewHome() {
-  S.list = await api('/vacations');
+async function viewHome(cached) {
+  if (!cached || !S.list) S.list = await api('/vacations');
   if (!S.friends) api('/friends').then(f => { S.friends = f; const d = $('#frdot'); if (d && f.incoming.length) d.hidden = false; }).catch(() => { });
   const { vacations, invites } = S.list;
   const today = todayStr();
@@ -223,7 +223,7 @@ async function viewHome() {
   return `<section class="page ink">
     <div class="top">
       <div><div class="hello">${greet}, ${esc(S.me.name)}</div><h1 class="title" style="margin-top:2px">החופשות שלי</h1></div>
-      <button data-act="me" aria-label="החשבון שלי" style="position:relative">${avatar(S.me)}<i class="dot" id="frdot" hidden></i></button>
+      <button data-act="me" aria-label="החשבון שלי" style="position:relative">${avatar(S.me)}<i class="dot" id="frdot" ${S.friends?.incoming?.length ? '' : 'hidden'}></i></button>
     </div>
     ${invites.map(v => `<div class="notice"><p><b>${esc(v.invitedBy)}</b> הזמין אותך לחופשה <b>${esc(v.name)}</b></p><button class="mini" data-act="inv-yes" data-id="${v.id}">הצטרפות</button><button class="mini no" data-act="inv-no" data-id="${v.id}">לא</button></div>`).join('')}
     <div class="seg" data-seg="tab" style="margin-top:18px"><span class="knob"></span><button class="${S.tab === 'mine' ? 'on' : ''}" data-act="tab" data-v="mine">שלי</button><button class="${S.tab === 'group' ? 'on' : ''}" data-act="tab" data-v="group">קבוצתיות</button></div>
@@ -905,7 +905,7 @@ const actions = {
   me: () => go('#/me'),
   new: () => { newWiz(); go('#/new'); },
   open: (el) => { flyPlane(); go('#/v/' + el.dataset.id); },
-  tab: (el) => { S.tab = el.dataset.v; render(); },
+  tab: async (el) => { if (S.tab === el.dataset.v) return; S.tab = el.dataset.v; paint($('#app'), await viewHome(true)); },
   filter: (el) => { S.filter = el.dataset.v; render(); },
   costview: (el) => { S.costView = el.dataset.v; render(); },
   crow: (el) => { const id = el.dataset.id; S.open[id] = !S.open[id]; el.closest('.crow').classList.toggle('open', S.open[id]); },
