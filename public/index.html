@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Vacation</title>
+<meta name="description" content="כל הטיסות, המגורים, הקבלות והמחירים של החופשה – במקום אחד, גם עם חברים.">
+<meta name="theme-color" content="#f6a48e">
+<link rel="icon" href="/icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="My Vacation">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="My Vacation">
+<meta property="og:title" content="My Vacation – כל החופשה במקום אחד">
+<meta property="og:description" content="טיסות, מגורים, אטרקציות, קבלות ומחירים – מסודר, משותף עם חברים, ותמיד בכיס.">
+<meta property="og:image" content="https://my-vacation.nimrodyaroker.workers.dev/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://my-vacation.nimrodyaroker.workers.dev/">
+<meta property="og:locale" content="he_IL">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="My Vacation – כל החופשה במקום אחד">
+<meta name="twitter:description" content="טיסות, מגורים, אטרקציות, קבלות ומחירים – מסודר, משותף עם חברים, ותמיד בכיס.">
+<meta name="twitter:image" content="https://my-vacation.nimrodyaroker.workers.dev/og.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css?v=1">
+</head>
+<body data-scene="dusk">
+<div id="scene" aria-hidden="true">
+  <div class="sky sky-dusk"></div>
+  <div class="sky sky-day"></div>
+  <div class="sky sky-night"></div>
+  <div class="stars"></div>
+  <div class="sun"><div class="sun-glow"></div><div class="sun-core"></div></div>
+  <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div>
+  <svg class="hills far" viewBox="0 0 400 200" preserveAspectRatio="none"><path d="M0 90 C50 40 90 20 140 70 C175 105 215 25 275 45 C330 62 360 85 400 75 L400 200 L0 200Z"/></svg>
+  <svg class="hills near" viewBox="0 0 400 200" preserveAspectRatio="none"><path d="M0 110 C45 80 105 65 160 95 C210 122 255 70 315 82 C355 90 380 100 400 96 L400 200 L0 200Z"/></svg>
+  <div class="sea">
+    <svg class="wave w1" viewBox="0 0 800 60" preserveAspectRatio="none"><path d="M0 30 Q50 10 100 30 T200 30 T300 30 T400 30 T500 30 T600 30 T700 30 T800 30 L800 60 L0 60Z"/></svg>
+    <svg class="wave w2" viewBox="0 0 800 60" preserveAspectRatio="none"><path d="M0 30 Q50 14 100 30 T200 30 T300 30 T400 30 T500 30 T600 30 T700 30 T800 30 L800 60 L0 60Z"/></svg>
+    <div class="glint"><i></i><i></i><i></i></div>
+  </div>
+  <svg class="plane" viewBox="0 0 48 48"><path d="M44 22l-14-2-9-14h-4l5 14-10 1-4-5H5l3 8-3 8h3l4-5 10 1-5 14h4l9-14 14-2c2-.4 2-3.6 0-4z"/></svg>
+</div>
+<main id="app"></main>
+<div id="layer"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="/app.js?v=1" defer></script>
+</body>
+</html>
