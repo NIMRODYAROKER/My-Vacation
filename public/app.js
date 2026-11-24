@@ -347,13 +347,19 @@ function viewTopic(d, tid) {
     ? `<button class="price-pill split" data-act="cost" data-id="${c.id}"><span><small>לכולם</small><b dir="ltr">${fmtMoney(c.amount, c.currency)}</b></span><i></i><span><small>ליחיד</small><b dir="ltr">${fmtMoney(Math.round(c.amount / c.split * 100) / 100, c.currency)}</b></span></button>`
     : `<button class="price-pill" data-act="cost" data-id="${c.id}"><b>${fmtMoney(c.amount, c.currency)}</b>${c.currency !== 'ILS' && c.ils !== null ? `<small>≈ ${fmtMoney(Math.round(c.ils))}</small>` : ''}</button>`;
   const docCost = it => costs.find(c => c.itemId === it.id) || costs.find(c => !c.itemId && (c.label || '') === docName(it));
-  const tagPrice = c => c ? `<span class="tile-price" dir="ltr">${fmtMoney(c.amount, c.currency)}${c.shared && c.split > 1 ? `<small>ליחיד ${fmtMoney(Math.round(c.amount / c.split * 100) / 100, c.currency)}</small>` : ''}</span>` : '';
+  const each = c => fmtMoney(Math.round(c.amount / c.split * 100) / 100, c.currency);
+  const tagPrice = c => c ? `<span class="tile-foot"><span class="ptag"><b dir="ltr">${fmtMoney(c.amount, c.currency)}</b></span>${c.shared && c.split > 1 ? `<span class="each"><small>ליחיד</small><b dir="ltr">${each(c)}</b></span>` : ''}</span>` : '';
   const docRow = (it, k) => `<button class="tile" style="animation-delay:${k * 45}ms" data-act="item" data-id="${it.id}">
       <span class="tile-t">${esc(docName(it))}</span>
-      <span class="tile-p ${it.kind}">${it.kind === 'image' ? `<img src="/api/items/${it.id}/file" alt="" loading="lazy">` : icon(kindIcon[it.kind])}${tagPrice(docCost(it))}</span></button>`;
+      <span class="tile-p ${it.kind}">${it.kind === 'image' ? `<img src="/api/items/${it.id}/file" alt="" loading="lazy">` : icon(kindIcon[it.kind])}</span>${tagPrice(docCost(it))}</button>`;
   const costRow = (c, k) => `<button class="tile" style="animation-delay:${(items.length + k) * 45}ms" data-act="cost" data-id="${c.id}">
       <span class="tile-t">${esc(c.label || 'מחיר')}</span>
-      <span class="tile-p cost">${icon('coins')}${tagPrice(c)}</span></button>`;
+      <span class="tile-p cost">${icon('coins')}</span>${tagPrice(c)}</button>`;
+  // התיק שלי: החלק שלי במסמכים המשותפים, כתג מחיר בלי המסמך עצמו
+  const shareNotes = v.group && S.filter === 'mine' ? d.costs.filter(c => c.shared && c.topicId === t.id) : [];
+  const noteTitle = c => { const it = c.itemId && d.items.find(x => x.id === c.itemId); return it ? docName(it) : (c.label || 'מחיר'); };
+  const noteRow = c => { const it = c.itemId && d.items.find(x => x.id === c.itemId);
+    return `<button class="share-tag" ${it ? `data-act="item" data-id="${it.id}"` : `data-act="cost" data-id="${c.id}"`}><span class="st-t">${esc(noteTitle(c))}</span><b dir="ltr">${c.split > 1 ? each(c) : fmtMoney(c.amount, c.currency)}</b></button>`; };
   return `<div class="topic-page">
     <div class="topic-hero">
       <div style="flex:1"><button class="back" data-act="go" data-h="#/v/${v.id}" style="color:#fff">${icon('back')}${esc(v.name)}</button>
@@ -366,7 +372,8 @@ function viewTopic(d, tid) {
         <button class="plus-doc" data-act="add-menu" aria-label="הוספת מסמך">${icon('plus')}</button></span>
         <button class="act plain" data-act="t-edit" data-id="${t.id}">${icon('edit')}עריכה</button>
       </div>
-      ${items.length || loose.length ? `<div class="tiles">${items.map(docRow).join('')}${loose.map(costRow).join('')}</div>` : `<p class="hint">עוד אין כאן כלום. מעלים צילום של כרטיס, קובץ PDF, או מדביקים מייל והודעה.</p>`}
+      ${shareNotes.length ? `<div class="share-tags"><span class="share-h">החלק שלי במשותף</span>${shareNotes.map(noteRow).join('')}</div>` : ''}
+      ${items.length || loose.length ? `<div class="tiles">${items.map(docRow).join('')}${loose.map(costRow).join('')}</div>` : shareNotes.length ? '' : `<p class="hint">עוד אין כאן כלום. מעלים צילום של כרטיס, קובץ PDF, או מדביקים מייל והודעה.</p>`}
     </section>
   </div>`;
 }
