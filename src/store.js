@@ -64,6 +64,8 @@ function str(v, { min = 0, max = 200, name = 'שדה' } = {}) {
   if (v.length > max) fail(400, `${name} ארוך מדי`);
   return v;
 }
+const KIND_NAMES = { file: 'קובץ', image: 'תמונה', email: 'מייל', message: 'הודעה' };
+function docLabel(it) { return String(it.title || it.file_name || KIND_NAMES[it.kind] || '').slice(0, 80); }
 function bool(v) { return v === true || v === 1 || v === '1' || v === 'true' ? 1 : 0; }
 function isoDate(v, name) {
   if (v === '' || v == null) return null;
@@ -142,6 +144,17 @@ export class Store {
       ];
       for (const s of stmts) this.run(s);
       this.run(`INSERT OR REPLACE INTO meta (k, v) VALUES ('schema', '1')`);
+    }
+    if (ver < 2) {
+      // a price belongs to a document: link existing prices to their document and follow its sharing
+      try { this.run(`ALTER TABLE costs ADD COLUMN item_id TEXT`); } catch {}
+      const used = new Set();
+      for (const c of this.q(`SELECT id, vacation_id, topic_id, user_id, label FROM costs WHERE item_id IS NULL ORDER BY created`)) {
+        const cands = this.q(`SELECT id, user_id, title, file_name, kind, shared FROM items WHERE vacation_id=? AND topic_id=? AND (user_id=? OR shared=1) ORDER BY (user_id=?) DESC, created`, c.vacation_id, c.topic_id, c.user_id, c.user_id);
+        const it = cands.find(i => !used.has(i.id) && docLabel(i) === (c.label || ''));
+        if (it) { used.add(it.id); this.run(`UPDATE costs SET item_id=?, shared=? WHERE id=?`, it.id, it.shared, c.id); }
+      }
+      this.run(`INSERT OR REPLACE INTO meta (k, v) VALUES ('schema', '2')`);
     }
   }
 
@@ -500,12 +513,13 @@ export class Store {
     const vis = `vacation_id=? AND (user_id=? OR shared=1)`;
     const items = this.q(`SELECT id, topic_id, user_id, kind, title, body, file_name, mime, size, shared, created FROM items WHERE ${vis} ORDER BY created DESC`, v.id, user.id)
       .map(i => ({ id: i.id, topicId: i.topic_id, mine: i.user_id === user.id, by: names[i.user_id] || '', kind: i.kind, title: i.title, body: i.body, fileName: i.file_name, mime: i.mime, size: i.size, shared: !!i.shared, created: i.created }));
-    const costs = this.q(`SELECT id, topic_id, user_id, label, amount, currency, shared, created FROM costs WHERE ${vis} ORDER BY created`, v.id, user.id)
-      .map(c => ({ id: c.id, topicId: c.topic_id, mine: c.user_id === user.id, by: names[c.user_id] || '', label: c.label, amount: c.amount, currency: c.currency, ils: this.toIls(rates, c.amount, c.currency), shared: !!c.shared }));
+    const split = Math.max(1, members.filter(m => m.status === 'joined').length);
+    const costs = this.q(`SELECT id, topic_id, item_id, user_id, label, amount, currency, shared, created FROM costs WHERE ${vis} ORDER BY created`, v.id, user.id)
+      .map(c => ({ id: c.id, topicId: c.topic_id, itemId: c.item_id || null, mine: c.user_id === user.id, by: names[c.user_id] || '', label: c.label, amount: c.amount, currency: c.currency, ils: this.toIls(rates, c.amount, c.currency), shared: !!c.shared, split: c.shared ? split : 1 }));
     const notes = this.q(`SELECT id, text, done, created FROM notes WHERE vacation_id=? AND user_id=? ORDER BY done, created`, v.id, user.id).map(n => ({ ...n, done: !!n.done }));
     const byTopic = topics.map(t => {
       const list = costs.filter(c => c.topicId === t.id);
-      return { topicId: t.id, total: Math.round(list.reduce((s, c) => s + (c.ils || 0), 0)), mine: Math.round(list.filter(c => c.mine).reduce((s, c) => s + (c.ils || 0), 0)) };
+      return { topicId: t.id, total: Math.round(list.reduce((s, c) => s + (c.ils || 0), 0)), mine: Math.round(list.reduce((s, c) => s + (c.shared ? (c.ils || 0) / c.split : c.mine ? (c.ils || 0) : 0), 0)) };
     });
     const missingRate = costs.some(c => c.ils === null);
     return {
@@ -634,11 +648,14 @@ export class Store {
     const topic = b.topicId ? this.topicOf(it.vacation_id, b.topicId).id : it.topic_id;
     const body = (it.kind === 'email' || it.kind === 'message') && b.body !== undefined ? str(b.body, { min: 1, max: 20000, name: 'טקסט' }) : it.body;
     this.run(`UPDATE items SET title=?, shared=?, topic_id=?, body=? WHERE id=?`, title, shared, topic, body, id);
+    // the price follows its document
+    this.run(`UPDATE costs SET shared=?, topic_id=?, label=? WHERE item_id=?`, shared, topic, docLabel({ title, file_name: it.file_name, kind: it.kind }), id);
     return json({ ok: true });
   }
   deleteItem(user, id, ip) {
     this.ownItem('items', user, id, ip);
     this.run(`DELETE FROM chunks WHERE item_id=?`, id);
+    this.run(`DELETE FROM costs WHERE item_id=?`, id);
     this.run(`DELETE FROM items WHERE id=?`, id);
     return json({ ok: true });
   }
@@ -664,21 +681,21 @@ export class Store {
 
   // ---- costs ----
   addCost(user, v, b) {
-    const topic = this.topicOf(v.id, b.topicId);
-    const label = str(b.label, { max: 80, name: 'תיאור' });
+    // a price is always attached to a document and shared exactly like it
+    const it = this.one(`SELECT * FROM items WHERE id=? AND vacation_id=? AND (user_id=? OR shared=1)`, idParam(b.itemId), v.id, user.id);
+    if (!it) fail(400, 'מחיר מוסיפים רק למסמך');
+    if (this.one(`SELECT id FROM costs WHERE item_id=?`, it.id)) fail(400, 'למסמך הזה כבר יש מחיר');
     if (this.one(`SELECT COUNT(*) AS n FROM costs WHERE vacation_id=?`, v.id).n >= 500) fail(400, 'יותר מדי מחירים');
     const id = randomId();
-    this.run(`INSERT INTO costs (id, vacation_id, topic_id, user_id, label, amount, currency, shared, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      id, v.id, topic.id, user.id, label, money(b.amount), currency(b.currency), bool(b.shared), Date.now());
+    this.run(`INSERT INTO costs (id, vacation_id, topic_id, item_id, user_id, label, amount, currency, shared, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, v.id, it.topic_id, it.id, user.id, docLabel(it), money(b.amount), currency(b.currency), it.shared ? 1 : 0, Date.now());
     return json({ id });
   }
   updateCost(user, id, b, ip) {
     const c = this.ownItem('costs', user, id, ip);
-    const label = b.label !== undefined ? str(b.label, { max: 80, name: 'תיאור' }) : c.label;
     const amount = b.amount !== undefined ? money(b.amount) : c.amount;
     const cur = b.currency !== undefined ? currency(b.currency) : c.currency;
-    const shared = b.shared !== undefined ? bool(b.shared) : c.shared;
-    this.run(`UPDATE costs SET label=?, amount=?, currency=?, shared=? WHERE id=?`, label, amount, cur, shared, id);
+    this.run(`UPDATE costs SET amount=?, currency=? WHERE id=?`, amount, cur, id);
     return json({ ok: true });
   }
   deleteCost(user, id, ip) {
