@@ -199,13 +199,29 @@ function viewAuth(signup) {
 async function viewHome(cached) {
   if (!cached || !S.list) S.list = await api('/vacations');
   if (!S.friends) api('/friends').then(f => { S.friends = f; const d = $('#frdot'); if (d && f.incoming.length) d.hidden = false; }).catch(() => { });
-  const { vacations, invites } = S.list;
+  const { invites } = S.list;
+  return `<section class="page ink">
+    <div class="top">
+      <div><div class="hello">${greetText()}, ${esc(S.me.name)}</div><h1 class="title" style="margin-top:2px">החופשות שלי</h1></div>
+      <button data-act="me" aria-label="החשבון שלי" style="position:relative">${avatar(S.me)}<i class="dot" id="frdot" ${S.friends?.incoming?.length ? '' : 'hidden'}></i></button>
+    </div>
+    ${invites.map(v => `<div class="notice"><p><b>${esc(v.invitedBy)}</b> הזמין אותך לחופשה <b>${esc(v.name)}</b></p><button class="mini" data-act="inv-yes" data-id="${v.id}">הצטרפות</button><button class="mini no" data-act="inv-no" data-id="${v.id}">לא</button></div>`).join('')}
+    <div class="seg" data-seg="tab" style="margin-top:18px"><span class="knob"></span><button class="${S.tab === 'mine' ? 'on' : ''}" data-act="tab" data-v="mine">שלי</button><button class="${S.tab === 'group' ? 'on' : ''}" data-act="tab" data-v="group">קבוצתיות</button></div>
+    ${homeList()}
+    <button class="cta" data-act="new">${icon('plus')}חופשה חדשה</button>
+    <span data-mount="seg"></span>
+  </section>`;
+}
+function greetText() {
+  const hour = new Date().getHours();
+  return hour < 5 ? 'לילה טוב' : hour < 12 ? 'בוקר טוב' : hour < 17 ? 'צהריים טובים' : hour < 21 ? 'ערב טוב' : 'לילה טוב';
+}
+function homeList() {
+  const { vacations } = S.list;
   const today = todayStr();
   const shown = vacations.filter(v => S.tab === 'group' ? v.group : !v.group);
   const upcoming = shown.filter(v => !v.end || v.end >= today);
   const past = shown.filter(v => v.end && v.end < today).reverse();
-  const hour = new Date().getHours();
-  const greet = hour < 5 ? 'לילה טוב' : hour < 12 ? 'בוקר טוב' : hour < 17 ? 'צהריים טובים' : hour < 21 ? 'ערב טוב' : 'לילה טוב';
   const feat = upcoming[0];
   const featHtml = feat ? (() => {
     const until = feat.start ? daysBetween(today, feat.start) : null;
@@ -220,21 +236,11 @@ async function viewHome(cached) {
   })() : '';
   const mini = (v) => `<button class="vmini glass" data-act="open" data-id="${v.id}"><b>${esc(v.name)}</b><span>${v.start ? monthYear(v.start) : esc(v.countries.join(', '))}</span></button>`;
   const rest = upcoming.slice(1);
-  return `<section class="page ink">
-    <div class="top">
-      <div><div class="hello">${greet}, ${esc(S.me.name)}</div><h1 class="title" style="margin-top:2px">החופשות שלי</h1></div>
-      <button data-act="me" aria-label="החשבון שלי" style="position:relative">${avatar(S.me)}<i class="dot" id="frdot" ${S.friends?.incoming?.length ? '' : 'hidden'}></i></button>
-    </div>
-    ${invites.map(v => `<div class="notice"><p><b>${esc(v.invitedBy)}</b> הזמין אותך לחופשה <b>${esc(v.name)}</b></p><button class="mini" data-act="inv-yes" data-id="${v.id}">הצטרפות</button><button class="mini no" data-act="inv-no" data-id="${v.id}">לא</button></div>`).join('')}
-    <div class="seg" data-seg="tab" style="margin-top:18px"><span class="knob"></span><button class="${S.tab === 'mine' ? 'on' : ''}" data-act="tab" data-v="mine">שלי</button><button class="${S.tab === 'group' ? 'on' : ''}" data-act="tab" data-v="group">קבוצתיות</button></div>
-    <div style="color:#fff;margin-top:${feat ? '34vh' : '0'}">
+  return `<div id="homelist" style="color:#fff;margin-top:${feat ? '34vh' : '0'}">
       ${feat ? featHtml : `<div class="empty homehero"><h3>${S.tab === 'group' ? 'עוד אין חופשות עם חברים' : 'לאן טסים?'}</h3><p>${S.tab === 'group' ? 'פותחים חופשה חדשה ומזמינים אליה חברים.' : 'פותחים חופשה ומכניסים אליה טיסות, מגורים, קבלות ומחירים.'}</p></div>`}
       ${rest.length ? `<p class="lbl">החופשות הבאות</p><div class="vgrid">${rest.map(mini).join('')}</div>` : ''}
       ${past.length ? `<p class="lbl">היינו שם</p><div class="vgrid">${past.map(mini).join('')}</div>` : ''}
-    </div>
-    <button class="cta" data-act="new">${icon('plus')}חופשה חדשה</button>
-    <span data-mount="seg"></span>
-  </section>`;
+    </div>`;
 }
 
 // ---------- views: wizard ----------
@@ -785,7 +791,7 @@ function openVacEdit(d) {
   openSheet(`<h2>עריכת החופשה</h2><form data-f>
     <label class="field"><span>שם</span><input class="input" name="name" maxlength="60" value="${esc(v.name)}" required></label>
     <label class="field"><span>מדינות (מופרדות בפסיק)</span><input class="input" name="countries" value="${esc(v.countries.join(', '))}"></label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="field"><span>יציאה</span><input class="input" type="date" name="start" value="${esc(v.start || '')}"></label><label class="field"><span>חזרה</span><input class="input" type="date" name="end" value="${esc(v.end || '')}"></label></div>
+    <div class="dategrid"><label class="field"><span>יציאה</span><input class="input" type="date" name="start" value="${esc(v.start || '')}"></label><label class="field"><span>חזרה</span><input class="input" type="date" name="end" value="${esc(v.end || '')}"></label></div>
     <p class="err" data-err></p><button class="btn block">שמירה</button></form>`, (s, close) => {
     s.querySelector('[data-f]').onsubmit = async (e) => {
       e.preventDefault();
@@ -905,7 +911,16 @@ const actions = {
   me: () => go('#/me'),
   new: () => { newWiz(); go('#/new'); },
   open: (el) => { flyPlane(); go('#/v/' + el.dataset.id); },
-  tab: async (el) => { if (S.tab === el.dataset.v) return; S.tab = el.dataset.v; paint($('#app'), await viewHome(true)); },
+  tab: (el) => {
+    if (S.tab === el.dataset.v) return;
+    S.tab = el.dataset.v;
+    el.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === el));
+    mounts.seg();
+    const box = $('#homelist');
+    if (!box || !S.list) return render();
+    box.outerHTML = homeList();
+    $('#homelist').classList.add('swap');
+  },
   filter: (el) => { S.filter = el.dataset.v; render(); },
   costview: (el) => { S.costView = el.dataset.v; render(); },
   crow: (el) => { const id = el.dataset.id; S.open[id] = !S.open[id]; el.closest('.crow').classList.toggle('open', S.open[id]); },
