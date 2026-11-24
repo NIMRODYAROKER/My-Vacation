@@ -333,7 +333,17 @@ function viewTopic(d, tid) {
   const items = visible(d, d.items).filter(x => x.topicId === t.id);
   const costs = visible(d, d.costs).filter(x => x.topicId === t.id);
   const tot = costs.reduce((s, c) => s + (c.ils || 0), 0);
-  const docRow = (it, k) => `<button class="doc" style="animation-delay:${k * 45}ms" data-act="item" data-id="${it.id}">
+  const docName = it => it.title || it.fileName || kindName[it.kind];
+  const docNames = new Set(items.map(docName));
+  const loose = costs.filter(c => !docNames.has(c.label || ''));
+  const usedCost = new Set();
+  const pill = c => `<button class="price-pill" data-act="cost" data-id="${c.id}"><b>${fmtMoney(c.amount, c.currency)}</b>${c.currency !== 'ILS' && c.ils !== null ? `<small>≈ ${fmtMoney(Math.round(c.ils))}</small>` : ''}</button>`;
+  const docRow = (it, k) => {
+    const mineCosts = costs.filter(c => (c.label || '') === docName(it) && !usedCost.has(c.id));
+    mineCosts.forEach(c => usedCost.add(c.id));
+    return `<div class="doc-wrap" style="animation-delay:${k * 45}ms">${docBtn(it)}${mineCosts.length ? `<span class="pills">${mineCosts.map(pill).join('')}</span>` : ''}</div>`;
+  };
+  const docBtn = it => `<button class="doc" data-act="item" data-id="${it.id}">
       <span class="blob ${it.kind}">${it.kind === 'image' ? `<img src="/api/items/${it.id}/file" alt="" loading="lazy">` : icon(kindIcon[it.kind])}</span>
       <span class="t"><b>${esc(it.title || it.fileName || kindName[it.kind])}</b><span>${kindName[it.kind]} · ${ago(it.created)}${!it.mine ? ' · ' + esc(it.by) : ''}</span></span>
       ${v.group ? (it.shared ? '<span class="tag">משותף</span>' : '<span class="tag soft">רק לי</span>') : ''}</button>`;
@@ -353,9 +363,7 @@ function viewTopic(d, tid) {
         <button class="plus-doc" data-act="add-menu" aria-label="הוספת מסמך">${icon('plus')}</button></span>
         <button class="act plain" data-act="t-edit" data-id="${t.id}">${icon('edit')}עריכה</button>
       </div>
-      ${items.length ? `<div class="list">${items.map(docRow).join('')}</div>` : `<p class="hint">עוד אין כאן כלום. מעלים צילום של כרטיס, קובץ PDF, או מדביקים מייל והודעה.</p>`}
-      <div class="section-t"><span>מחירים</span>${tot ? `<small>${fmtMoney(Math.round(tot))}</small>` : ''}</div>
-      ${costs.length ? `<div class="list">${costs.map(costRow).join('')}</div>` : `<p class="hint">כמה זה עלה? מוסיפים מחיר, אפשר כמה בתוך אותו נושא.</p>`}
+      ${items.length || loose.length ? `<div class="list">${items.map(docRow).join('')}${loose.map(costRow).join('')}</div>` : `<p class="hint">עוד אין כאן כלום. מעלים צילום של כרטיס, קובץ PDF, או מדביקים מייל והודעה.</p>`}
       <button class="btn block price-cta" data-act="go" data-h="#/v/${v.id}/t/${t.id}/cost">${icon('coins')}הוספת מחיר</button>
     </section>
   </div>`;

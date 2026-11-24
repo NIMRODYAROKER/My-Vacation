@@ -203,6 +203,13 @@ select.input{appearance:none;-webkit-appearance:none}
 .addbar .ico{width:18px;height:18px}
 .list{display:flex;flex-direction:column;gap:6px;margin-top:14px}
 .doc{display:flex;align-items:center;gap:14px;padding:10px 6px;border-radius:26px;text-align:right;width:100%;transition:background .3s,transform .3s var(--spring);animation:rise .55s var(--ease) both}
+.doc-wrap{display:flex;align-items:center;gap:8px;animation:rise .55s var(--ease) both}
+.doc-wrap .doc{flex:1;min-width:0;animation:none}
+.pills{display:flex;flex-direction:column;gap:6px;flex:none}
+.price-pill{display:flex;flex-direction:column;align-items:center;padding:8px 14px;border-radius:999px;background:linear-gradient(135deg,#fff1e8,#fde3ea);color:#7a1f5c;direction:ltr;transition:transform .3s var(--spring)}
+.price-pill b{font-size:14px;font-weight:700}
+.price-pill small{font-size:11px;color:var(--muted);font-weight:500}
+.price-pill:active{transform:scale(.94)}
 .doc:active{background:#f6e9ee;transform:scale(.98)}
 @keyframes rise{from{opacity:0;transform:translateY(16px)}}
 .blob{width:50px;height:50px;border-radius:18px 22px 20px 16px;display:grid;place-items:center;flex:none}
