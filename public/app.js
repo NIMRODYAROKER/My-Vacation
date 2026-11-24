@@ -316,7 +316,7 @@ function viewVacation(d) {
       <button class="${S.filter === 'shared' ? 'on' : ''}" data-act="filter" data-v="shared">משותף</button></div>` : ''}
     <div class="field-of-bubbles" data-mount="bubbles" data-vid="${v.id}">
       ${d.topics.map((t, i) => {
-    const n = items.filter(x => x.topicId === t.id).length + costs.filter(x => x.topicId === t.id).length;
+    const n = items.filter(x => x.topicId === t.id).length;
     return `<button class="bubble ${topicClass(i)}" data-act="topic" data-id="${t.id}" data-i="${i}">${icon(t.icon)}<b>${esc(t.name)}</b><small>${n ? n + ' פריטים' : 'ריק'}</small></button>`;
   }).join('')}
       <button class="bubble add" data-act="t-add" aria-label="נושא חדש">${icon('plus')}<small style="opacity:1">נושא</small></button>
@@ -337,6 +337,7 @@ function viewTopic(d, tid) {
   const docNames = new Set(items.map(docName));
   const loose = costs.filter(c => !docNames.has(c.label || ''));
   const usedCost = new Set();
+  const free = freeDocNames(items, costs, docName);
   const pill = c => `<button class="price-pill" data-act="cost" data-id="${c.id}"><b>${fmtMoney(c.amount, c.currency)}</b>${c.currency !== 'ILS' && c.ils !== null ? `<small>≈ ${fmtMoney(Math.round(c.ils))}</small>` : ''}</button>`;
   const docRow = (it, k) => {
     const mineCosts = costs.filter(c => (c.label || '') === docName(it) && !usedCost.has(c.id));
@@ -364,7 +365,7 @@ function viewTopic(d, tid) {
         <button class="act plain" data-act="t-edit" data-id="${t.id}">${icon('edit')}עריכה</button>
       </div>
       ${items.length || loose.length ? `<div class="list">${items.map(docRow).join('')}${loose.map(costRow).join('')}</div>` : `<p class="hint">עוד אין כאן כלום. מעלים צילום של כרטיס, קובץ PDF, או מדביקים מייל והודעה.</p>`}
-      <button class="btn block price-cta${items.length ? '' : ' off'}" data-act="${items.length ? 'go' : 'price-ask'}" data-h="#/v/${v.id}/t/${t.id}/cost">${icon('coins')}הוספת מחיר</button>
+      <button class="btn block price-cta${free.length ? '' : ' off'}" data-act="${free.length ? 'go' : 'price-ask'}" data-why="${items.length ? 'all' : 'none'}" data-h="#/v/${v.id}/t/${t.id}/cost">${icon('coins')}הוספת מחיר</button>
     </section>
   </div>`;
 }
@@ -589,6 +590,13 @@ function openAdd(d, topicId, kind) {
     };
   });
 }
+// doc names that still have a document without a price (a doc with a price can't get another)
+function freeDocNames(items, costs, docName) {
+  const left = new Map();
+  items.forEach(it => { const n = docName(it); left.set(n, (left.get(n) || 0) + 1); });
+  costs.forEach(c => { const n = c.label || ''; if (left.has(n)) left.set(n, left.get(n) - 1); });
+  return [...left].filter(([, k]) => k > 0).map(([n]) => n);
+}
 function viewCostPage(d, tid, costId) {
   const v = d.vacation;
   const i = d.topics.findIndex(t => t.id === tid);
@@ -596,7 +604,9 @@ function viewCostPage(d, tid, costId) {
   if (i < 0 || (costId && !cost)) { setTimeout(() => go('#/v/' + v.id + (i < 0 ? '' : '/t/' + tid), true)); return ''; }
   const t = d.topics[i];
   const cur = cost ? cost.currency : guessCurrency(d);
-  const names = [...new Set(visible(d, d.items).filter(x => x.topicId === tid).map(it => it.title || it.fileName || kindName[it.kind]))];
+  const tItems = visible(d, d.items).filter(x => x.topicId === tid);
+  const tCosts = visible(d, d.costs).filter(x => x.topicId === tid && (!cost || x.id !== cost.id));
+  const names = freeDocNames(tItems, tCosts, it => it.title || it.fileName || kindName[it.kind]);
   if (cost && cost.label && !names.includes(cost.label)) names.unshift(cost.label);
   const sel = cost ? (cost.label || '') : (names[0] || '');
   return `<div class="topic-page">
@@ -610,7 +620,7 @@ function viewCostPage(d, tid, costId) {
         <label class="field"><span>על מה?</span><select class="input" name="label">
           ${names.map(n => `<option value="${esc(n)}" ${n === sel ? 'selected' : ''}>${esc(n)}</option>`).join('')}
           <option value="" ${sel === '' ? 'selected' : ''}>כללי, בלי מסמך</option></select></label>
-        ${names.length ? '' : `<p class="hint" style="padding:10px 16px 0">אחרי שמוסיפים מסמכים לנושא, השמות שלהם יופיעו כאן לבחירה.</p>`}
+        ${names.length ? '' : `<p class="hint" style="padding:10px 16px 0">${tItems.length ? 'לכל המסמכים בנושא כבר יש מחיר.' : 'אחרי שמוסיפים מסמכים לנושא, השמות שלהם יופיעו כאן לבחירה.'}</p>`}
         <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:10px">
           <label class="field"><span>סכום</span><input class="input" name="amount" inputmode="decimal" dir="ltr" required value="${cost ? cost.amount : ''}" placeholder="0"></label>
           <label class="field"><span>מטבע</span><select class="input" name="currency">${d.currencies.map(c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${CUR_NAMES[c] || c} (${c})</option>`).join('')}</select></label>
@@ -883,7 +893,7 @@ const actions = {
   't-edit': (el) => { const d = curVac(); openTopicEdit(d, d.topics.find(t => t.id === el.dataset.id)); },
   'v-edit': () => openVacEdit(curVac()),
   'add-menu': () => openAddMenu(curVac(), location.hash.split('/')[4]),
-  'price-ask': async (el) => { if (await confirmSheet('עוד אין מסמכים בנושא', 'אפשר להוסיף בכל זאת מחיר כללי, בלי מסמך.', 'הוספת מחיר כללי', false)) go(el.dataset.h); },
+  'price-ask': async (el) => { const all = el.dataset.why === 'all'; if (await confirmSheet(all ? 'לכל המסמכים כבר יש מחיר' : 'עוד אין מסמכים בנושא', 'אפשר להוסיף בכל זאת מחיר כללי, בלי מסמך.', 'הוספת מחיר כללי', false)) go(el.dataset.h); },
   item: (el) => { const d = curVac(); openItem(d, d.items.find(i => i.id === el.dataset.id)); },
   cost: (el) => {
     const d = curVac(); const c = d.costs.find(i => i.id === el.dataset.id);
