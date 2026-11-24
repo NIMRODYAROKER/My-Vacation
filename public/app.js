@@ -158,6 +158,7 @@ async function route(h) {
         if (!S.vac[id]) { paint(app, '<div class="spinner"></div>'); await loadVac(id); }
         const d = S.vac[id];
         if (!parts[2]) { setScene('day'); return paint(app, viewVacation(d)); }
+        if (parts[2] === 't' && parts[4] === 'cost') { setScene('day'); return paint(app, viewCostPage(d, parts[3], parts[5])); }
         if (parts[2] === 't') { setScene('day'); return paint(app, viewTopic(d, parts[3])); }
         if (parts[2] === 'costs') { setScene('night'); return paint(app, viewCosts(d)); }
         if (parts[2] === 'notes') { setScene('night'); return paint(app, viewNotes(d)); }
@@ -348,19 +349,14 @@ function viewTopic(d, tid) {
     </div>
     <section class="page paper topic-card" style="padding-top:22px">
       <div class="row" style="display:flex;justify-content:space-between;align-items:center">
-        <span class="muted" style="color:var(--muted)">${items.length} מסמכים${tot ? ` · ${fmtMoney(Math.round(tot))}` : ''}</span>
-        <button class="act" style="background:#f6e9ee;border:0;color:var(--paper-ink)" data-act="t-edit" data-id="${t.id}">${icon('edit')}עריכה</button>
-      </div>
-      <div class="addbar">
-        <button data-act="add" data-k="image">${icon('image')}תמונה</button>
-        <button data-act="add" data-k="file">${icon('file')}קובץ</button>
-        <button data-act="add" data-k="email">${icon('mail')}מייל</button>
-        <button data-act="add" data-k="message">${icon('msg')}הודעה</button>
-        <button data-act="add" data-k="cost">${icon('coins')}מחיר</button>
+        <span class="docs-h"><span class="muted" style="color:var(--muted)">${items.length} מסמכים${tot ? ` · ${fmtMoney(Math.round(tot))}` : ''}</span>
+        <button class="plus-doc" data-act="add-menu" aria-label="הוספת מסמך">${icon('plus')}</button></span>
+        <button class="act plain" data-act="t-edit" data-id="${t.id}">${icon('edit')}עריכה</button>
       </div>
       ${items.length ? `<div class="list">${items.map(docRow).join('')}</div>` : `<p class="hint">עוד אין כאן כלום. מעלים צילום של כרטיס, קובץ PDF, או מדביקים מייל והודעה.</p>`}
       <div class="section-t"><span>מחירים</span>${tot ? `<small>${fmtMoney(Math.round(tot))}</small>` : ''}</div>
       ${costs.length ? `<div class="list">${costs.map(costRow).join('')}</div>` : `<p class="hint">כמה זה עלה? מוסיפים מחיר, אפשר כמה בתוך אותו נושא.</p>`}
+      <button class="btn block price-cta" data-act="go" data-h="#/v/${v.id}/t/${t.id}/cost">${icon('coins')}הוספת מחיר</button>
     </section>
   </div>`;
 }
@@ -394,7 +390,7 @@ function viewCosts(d) {
     ${rows.length ? rows.map(r => `<div class="crow ${S.open[r.t.id] ? 'open' : ''}" data-id="${r.t.id}">
         <button data-act="crow" data-id="${r.t.id}"><span class="sw" style="background:${TOPIC_COLORS[r.i % 6]}"></span><span class="n">${esc(r.t.name)}</span><span class="p">${total ? Math.round(r.sum / total * 100) : 0}%</span><span class="v">${fmtMoney(Math.round(r.sum))}</span></button>
         <div class="inner"><div>${r.list.map(c => `<div class="line"><span>${esc(c.label || 'מחיר')}${!c.mine ? ' · ' + esc(c.by) : ''}</span><span dir="ltr">${fmtMoney(c.amount, c.currency)}</span></div>`).join('')}</div></div>
-      </div>`).join('') : `<div class="empty"><p>עוד לא נרשמו מחירים. נכנסים לנושא (טיסות, מגורים…) ולוחצים "מחיר".</p></div>`}
+      </div>`).join('') : `<div class="empty"><p>עוד לא נרשמו מחירים. נכנסים לנושא (טיסות, מגורים…) ולוחצים "הוספת מחיר".</p></div>`}
     ${d.costs.some(c => c.currency !== 'ILS') ? `<p class="rate-note">מחירים במטבע זר מחושבים לשקלים לפי השער העדכני${d.totals.missingRate ? ' (לחלק מהמטבעות אין עכשיו שער)' : ''}</p>` : ''}
     <span data-mount="seg"></span>
   </section>`;
@@ -542,7 +538,6 @@ function guessCurrency(d) {
 function openAdd(d, topicId, kind) {
   const v = d.vacation;
   const topic = d.topics.find(t => t.id === topicId);
-  if (kind === 'cost') return openCost(d, topicId, null);
   const isFile = kind === 'file' || kind === 'image';
   const title = { file: 'הוספת קובץ', image: 'הוספת תמונה', email: 'הוספת מייל', message: 'הוספת הודעה' }[kind];
   openSheet(`<h2>${title}</h2><p class="muted">${esc(topic.name)}</p>
@@ -586,39 +581,81 @@ function openAdd(d, topicId, kind) {
     };
   });
 }
-function openCost(d, topicId, cost) {
+function viewCostPage(d, tid, costId) {
   const v = d.vacation;
+  const i = d.topics.findIndex(t => t.id === tid);
+  const cost = costId ? d.costs.find(c => c.id === costId && c.mine) : null;
+  if (i < 0 || (costId && !cost)) { setTimeout(() => go('#/v/' + v.id + (i < 0 ? '' : '/t/' + tid), true)); return ''; }
+  const t = d.topics[i];
   const cur = cost ? cost.currency : guessCurrency(d);
-  const curs = d.currencies;
-  openSheet(`<h2>${cost ? 'עריכת מחיר' : 'הוספת מחיר'}</h2><p class="muted">${esc(d.topics.find(t => t.id === (cost ? cost.topicId : topicId))?.name || '')}</p>
-    <form data-f>
-      <label class="field"><span>על מה?</span><input class="input" name="label" maxlength="80" placeholder="למשל: וילה בווק טום, 9 לילות" value="${esc(cost?.label || '')}"></label>
-      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:10px">
-        <label class="field"><span>סכום</span><input class="input" name="amount" inputmode="decimal" dir="ltr" required value="${cost ? cost.amount : ''}" placeholder="0"></label>
-        <label class="field"><span>מטבע</span><select class="input" name="currency">${curs.map(c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${CUR_NAMES[c] || c} (${c})</option>`).join('')}</select></label>
-      </div>
-      ${sharedToggle(d, cost ? cost.shared : false)}
-      <p class="err" data-err></p>
-      <div class="vactions"><button class="btn">${cost ? 'שמירה' : 'הוספה'}</button>${cost ? `<button type="button" class="btn danger" data-del>${icon('trash')}מחיקה</button>` : ''}</div>
-    </form>`, (s, close) => {
-    const isShared = bindToggle(s);
-    s.querySelector('[data-f]').onsubmit = async (e) => {
-      e.preventDefault();
-      const f = e.target, err = s.querySelector('[data-err]');
-      const amount = Number(f.amount.value.replace(/,/g, '').trim());
-      if (!f.amount.value.trim() || !isFinite(amount) || amount < 0) { err.textContent = 'צריך לכתוב סכום'; return; }
-      try {
-        const body = { label: f.label.value, amount, currency: f.currency.value, shared: isShared() };
-        if (cost) await api(`/costs/${cost.id}/update`, body);
-        else await api(`/vacations/${v.id}/costs`, { ...body, topicId });
-        close(); await refreshVac(v.id); render();
-      } catch (ex) { err.textContent = ex.message; }
-    };
-    const del = s.querySelector('[data-del]');
-    if (del) del.onclick = async () => {
-      try { await api(`/costs/${cost.id}/delete`, {}); close(); await refreshVac(v.id); render(); toast('נמחק'); } catch (ex) { toast(ex.message); }
-    };
-  });
+  const names = [...new Set(visible(d, d.items).filter(x => x.topicId === tid).map(it => it.title || it.fileName || kindName[it.kind]))];
+  if (cost && cost.label && !names.includes(cost.label)) names.unshift(cost.label);
+  const sel = cost ? (cost.label || '') : (names[0] || '');
+  return `<div class="topic-page">
+    <div class="topic-hero">
+      <div style="flex:1"><button class="back" data-act="go" data-h="#/v/${v.id}/t/${t.id}" style="color:#fff">${icon('back')}${esc(t.name)}</button>
+      <h1 class="title" style="margin-top:4px">${cost ? 'עריכת מחיר' : 'הוספת מחיר'}</h1></div>
+      <span class="topic-orb ${topicClass(i)}">${icon('coins')}</span>
+    </div>
+    <section class="page paper topic-card cost-page" style="padding-top:22px">
+      <form data-costf data-vid="${v.id}" data-tid="${t.id}" data-cid="${cost ? cost.id : ''}">
+        <label class="field"><span>על מה?</span><select class="input" name="label">
+          ${names.map(n => `<option value="${esc(n)}" ${n === sel ? 'selected' : ''}>${esc(n)}</option>`).join('')}
+          <option value="" ${sel === '' ? 'selected' : ''}>כללי, בלי מסמך</option></select></label>
+        ${names.length ? '' : `<p class="hint" style="padding:10px 16px 0">אחרי שמוסיפים מסמכים לנושא, השמות שלהם יופיעו כאן לבחירה.</p>`}
+        <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:10px">
+          <label class="field"><span>סכום</span><input class="input" name="amount" inputmode="decimal" dir="ltr" required value="${cost ? cost.amount : ''}" placeholder="0"></label>
+          <label class="field"><span>מטבע</span><select class="input" name="currency">${d.currencies.map(c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${CUR_NAMES[c] || c} (${c})</option>`).join('')}</select></label>
+        </div>
+        ${sharedToggle(d, cost ? cost.shared : false)}
+        <p class="err" data-err></p>
+        <div class="vactions"><button class="btn">${cost ? 'שמירה' : 'הוספה'}</button>${cost ? `<button type="button" class="btn danger" data-del>${icon('trash')}מחיקה</button>` : ''}</div>
+      </form>
+    </section>
+    <span data-mount="costform"></span>
+  </div>`;
+}
+function bindCostForm() {
+  const f = $('[data-costf]');
+  if (!f) return;
+  const vid = f.dataset.vid, tid = f.dataset.tid, cid = f.dataset.cid;
+  const isShared = bindToggle(f);
+  const back = '#/v/' + vid + '/t/' + tid;
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const err = f.querySelector('[data-err]');
+    const amount = Number(f.amount.value.replace(/,/g, '').trim());
+    if (!f.amount.value.trim() || !isFinite(amount) || amount < 0) { err.textContent = 'צריך לכתוב סכום'; return; }
+    try {
+      const body = { label: f.label.value, amount, currency: f.currency.value, shared: isShared() };
+      if (cid) await api(`/costs/${cid}/update`, body);
+      else await api(`/vacations/${vid}/costs`, { ...body, topicId: tid });
+      await refreshVac(vid); history.replaceState(null, '', back); render(); toast('נשמר');
+    } catch (ex) { err.textContent = ex.message; }
+  };
+  const del = f.querySelector('[data-del]');
+  if (del) del.onclick = async () => {
+    if (!(await confirmSheet('למחוק את המחיר?', 'המחיר יימחק מהחופשה.', 'מחיקה'))) return;
+    try { await api(`/costs/${cid}/delete`, {}); await refreshVac(vid); history.replaceState(null, '', back); render(); toast('נמחק'); } catch (ex) { toast(ex.message); }
+  };
+}
+function openAddMenu(d, topicId) {
+  closeLayer(true);
+  const layer = $('#layer');
+  const opts = [['image', 'image', 'תמונה'], ['file', 'file', 'קובץ'], ['email', 'mail', 'מייל'], ['message', 'msg', 'הודעה']];
+  layer.innerHTML = `<div class="scrim"></div><div class="asheet" role="dialog" aria-modal="true">
+    <div class="grp"><p class="asheet-t">מה מוסיפים?</p>${opts.map(([k, ic, n]) => `<button data-k="${k}"><span class="blob ${k}">${icon(ic)}</span>${n}</button>`).join('')}</div>
+    <button class="grp cancel">ביטול</button></div>`;
+  const scrim = layer.querySelector('.scrim'), sh = layer.querySelector('.asheet');
+  requestAnimationFrame(() => requestAnimationFrame(() => { scrim.classList.add('in'); sh.classList.add('in'); }));
+  const close = () => {
+    scrim.classList.remove('in'); sh.classList.remove('in'); layerClose = null;
+    setTimeout(() => { if (layer.contains(sh)) layer.innerHTML = ''; }, 450);
+  };
+  scrim.onclick = close;
+  sh.querySelector('.cancel').onclick = close;
+  sh.querySelectorAll('[data-k]').forEach(b => b.onclick = () => openAdd(d, topicId, b.dataset.k));
+  layerClose = close;
 }
 function openItem(d, it) {
   const v = d.vacation;
@@ -724,6 +761,7 @@ function openVacEdit(d) {
 
 // ---------- mounts (run after paint) ----------
 const mounts = {
+  costform() { bindCostForm(); },
   seg() {
     document.querySelectorAll('.seg').forEach(seg => {
       const on = seg.querySelector('button.on'), knob = seg.querySelector('.knob');
@@ -836,11 +874,11 @@ const actions = {
   't-add': () => openTopicEdit(curVac(), null),
   't-edit': (el) => { const d = curVac(); openTopicEdit(d, d.topics.find(t => t.id === el.dataset.id)); },
   'v-edit': () => openVacEdit(curVac()),
-  add: (el) => { const d = curVac(); openAdd(d, location.hash.split('/')[4], el.dataset.k); },
+  'add-menu': () => openAddMenu(curVac(), location.hash.split('/')[4]),
   item: (el) => { const d = curVac(); openItem(d, d.items.find(i => i.id === el.dataset.id)); },
   cost: (el) => {
     const d = curVac(); const c = d.costs.find(i => i.id === el.dataset.id);
-    if (c.mine) openCost(d, c.topicId, c); else toast(`נוסף על ידי ${c.by}`);
+    if (c.mine) go(`#/v/${d.vacation.id}/t/${c.topicId}/cost/${c.id}`); else toast(`נוסף על ידי ${c.by}`);
   },
   'inv-yes': async (el) => { await api(`/vacations/${el.dataset.id}/respond`, { accept: true }); S.list = null; flyPlane(); go('#/v/' + el.dataset.id); },
   'inv-no': async (el) => { await api(`/vacations/${el.dataset.id}/respond`, { accept: false }); S.list = null; render(); },
