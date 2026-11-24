@@ -364,7 +364,7 @@ function viewTopic(d, tid) {
         <button class="act plain" data-act="t-edit" data-id="${t.id}">${icon('edit')}עריכה</button>
       </div>
       ${items.length || loose.length ? `<div class="list">${items.map(docRow).join('')}${loose.map(costRow).join('')}</div>` : `<p class="hint">עוד אין כאן כלום. מעלים צילום של כרטיס, קובץ PDF, או מדביקים מייל והודעה.</p>`}
-      <button class="btn block price-cta" data-act="go" data-h="#/v/${v.id}/t/${t.id}/cost">${icon('coins')}הוספת מחיר</button>
+      <button class="btn block price-cta" data-act="go"${items.length ? '' : ' disabled'} data-h="#/v/${v.id}/t/${t.id}/cost">${icon('coins')}הוספת מחיר</button>
     </section>
   </div>`;
 }
