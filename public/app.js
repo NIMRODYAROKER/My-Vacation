@@ -346,19 +346,12 @@ function viewTopic(d, tid) {
   const pill = c => c.shared && c.split > 1
     ? `<button class="price-pill split" data-act="cost" data-id="${c.id}"><span><small>לכולם</small><b dir="ltr">${fmtMoney(c.amount, c.currency)}</b></span><i></i><span><small>ליחיד</small><b dir="ltr">${fmtMoney(Math.round(c.amount / c.split * 100) / 100, c.currency)}</b></span></button>`
     : `<button class="price-pill" data-act="cost" data-id="${c.id}"><b>${fmtMoney(c.amount, c.currency)}</b>${c.currency !== 'ILS' && c.ils !== null ? `<small>≈ ${fmtMoney(Math.round(c.ils))}</small>` : ''}</button>`;
-  const docRow = (it, k) => {
-    const mineCosts = costs.filter(c => !usedCost.has(c.id) && (c.itemId ? c.itemId === it.id : (c.label || '') === docName(it)));
-    mineCosts.forEach(c => usedCost.add(c.id));
-    return `<div class="doc-wrap" style="animation-delay:${k * 45}ms">${docBtn(it)}${mineCosts.length ? `<span class="pills">${mineCosts.map(pill).join('')}</span>` : ''}</div>`;
-  };
-  const docBtn = it => `<button class="doc" data-act="item" data-id="${it.id}">
-      <span class="blob ${it.kind}">${it.kind === 'image' ? `<img src="/api/items/${it.id}/file" alt="" loading="lazy">` : icon(kindIcon[it.kind])}</span>
-      <span class="t"><b>${esc(it.title || it.fileName || kindName[it.kind])}</b><span>${kindName[it.kind]} · ${ago(it.created)}${!it.mine ? ' · ' + esc(it.by) : ''}</span></span>
-      ${v.group ? (it.shared ? '<span class="tag">משותף לכולם</span>' : '<span class="tag soft">רק לי</span>') : ''}</button>`;
-  const costRow = (c, k) => `<button class="doc" style="animation-delay:${(items.length + k) * 45}ms" data-act="cost" data-id="${c.id}">
-      <span class="blob cost">${icon('coins')}</span>
-      <span class="t"><b>${esc(c.label || 'מחיר')}</b><span>${c.currency !== 'ILS' && c.ils !== null ? '≈ ' + fmtMoney(Math.round(c.ils)) : ''}${!c.mine ? (c.currency !== 'ILS' ? ' · ' : '') + esc(c.by) : ''}</span></span>
-      <span class="amt">${fmtMoney(c.amount, c.currency)}</span></button>`;
+  const docRow = (it, k) => `<button class="tile" style="animation-delay:${k * 45}ms" data-act="item" data-id="${it.id}">
+      <span class="tile-t">${esc(docName(it))}</span>
+      <span class="tile-p ${it.kind}">${it.kind === 'image' ? `<img src="/api/items/${it.id}/file" alt="" loading="lazy">` : icon(kindIcon[it.kind])}</span></button>`;
+  const costRow = (c, k) => `<button class="tile" style="animation-delay:${(items.length + k) * 45}ms" data-act="cost" data-id="${c.id}">
+      <span class="tile-t">${esc(c.label || 'מחיר')}</span>
+      <span class="tile-p cost">${icon('coins')}</span></button>`;
   return `<div class="topic-page">
     <div class="topic-hero">
       <div style="flex:1"><button class="back" data-act="go" data-h="#/v/${v.id}" style="color:#fff">${icon('back')}${esc(v.name)}</button>
@@ -371,7 +364,7 @@ function viewTopic(d, tid) {
         <button class="plus-doc" data-act="add-menu" aria-label="הוספת מסמך">${icon('plus')}</button></span>
         <button class="act plain" data-act="t-edit" data-id="${t.id}">${icon('edit')}עריכה</button>
       </div>
-      ${items.length || loose.length ? `<div class="list">${items.map(docRow).join('')}${loose.map(costRow).join('')}</div>` : `<p class="hint">עוד אין כאן כלום. מעלים צילום של כרטיס, קובץ PDF, או מדביקים מייל והודעה.</p>`}
+      ${items.length || loose.length ? `<div class="tiles">${items.map(docRow).join('')}${loose.map(costRow).join('')}</div>` : `<p class="hint">עוד אין כאן כלום. מעלים צילום של כרטיס, קובץ PDF, או מדביקים מייל והודעה.</p>`}
     </section>
   </div>`;
 }
@@ -696,7 +689,10 @@ function openItem(d, it) {
   const noPrice = !d.costs.some(c => c.itemId === it.id || (!c.itemId && c.topicId === it.topicId && (c.label || '') === dn(it)));
   openSheet(`<div class="row" style="display:flex;gap:12px;align-items:center"><span class="blob ${it.kind}">${icon(kindIcon[it.kind])}</span><div style="flex:1;min-width:0"><h2 style="font-size:20px;overflow-wrap:anywhere">${esc(it.title || it.fileName || kindName[it.kind])}</h2><p class="muted">${kindName[it.kind]} · ${ago(it.created)}${!it.mine ? ' · ' + esc(it.by) : ''}</p></div></div>
     ${content}
-    ${it.mine && v.group ? sharedToggle(d, it.shared) : ''}
+    ${(() => { const cs = d.costs.filter(c => c.itemId === it.id || (!c.itemId && c.topicId === it.topicId && (c.label || '') === dn(it))); return cs.length ? `<div class="item-prices">${cs.map(c => c.shared && c.split > 1
+      ? `<button class="price-pill split" data-cost="${c.id}"><span><small>לכולם</small><b dir="ltr">${fmtMoney(c.amount, c.currency)}</b></span><i></i><span><small>ליחיד</small><b dir="ltr">${fmtMoney(Math.round(c.amount / c.split * 100) / 100, c.currency)}</b></span></button>`
+      : `<button class="price-pill" data-cost="${c.id}"><b>${fmtMoney(c.amount, c.currency)}</b>${c.currency !== 'ILS' && c.ils !== null ? `<small>≈ ${fmtMoney(Math.round(c.ils))}</small>` : ''}</button>`).join('')}</div>` : ''; })()}
+    ${it.mine && v.group ? sharedToggle(d, it.shared) : (v.group && it.shared ? '<p class="muted" style="margin-top:12px"><span class="tag">משותף לכולם</span></p>' : '')}
     <div class="vactions">
       <button class="btn" data-share>${icon('share')}שליחה</button>
       ${it.kind !== 'file' && it.kind !== 'image' ? `<button class="btn soft" data-copy>${icon('copy')}העתקה</button>` : `<a class="btn soft" href="${url}?dl=1" download>${icon('download')}הורדה</a>`}
@@ -718,6 +714,7 @@ function openItem(d, it) {
       if (!(await confirmSheet('למחוק?', 'המסמך יימחק לגמרי.', 'מחיקה'))) return;
       try { await api(`/items/${it.id}/delete`, {}); await refreshVac(v.id); render(); toast('נמחק'); } catch (ex) { toast(ex.message); }
     };
+    s.querySelectorAll('[data-cost]').forEach(b => b.onclick = () => { const c = d.costs.find(x => x.id === b.dataset.cost); if (!c) return; if (c.mine) { close(); go(`#/v/${v.id}/t/${c.topicId}/cost/${c.id}`); } else toast(`נוסף על ידי ${c.by}`); });
     const pr = s.querySelector('[data-price]');
     if (pr) pr.onclick = () => { S.costItem = it.id; close(); go(`#/v/${v.id}/t/${it.topicId}/cost`); };
     const ed = s.querySelector('[data-edit]');
