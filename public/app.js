@@ -483,7 +483,7 @@ async function viewMe() {
 const alertName = (k) => ({ 'rate-limit': 'יותר מדי ניסיונות', 'login-failures': 'ניסיונות כניסה כושלים', 'access-denied': 'ניסיון גישה לא מורשה', 'file-denied': 'ניסיון לפתוח קובץ של מישהו אחר', 'admin-denied': 'ניסיון כניסה לניהול', 'bad-origin': 'בקשה מאתר זר', 'admin-reset': 'הונפקה סיסמה זמנית' }[k] || k);
 function viewNewPass() {
   return `<section class="page full auth">
-    <div class="brand"><img class="logo" src="/icons/icon-192.png?v=2" alt=""><h1>סיסמה חדשה</h1><p>נכנסת עם סיסמה זמנית. בוחרים עכשיו סיסמה קבועה.</p></div>
+    <div class="brand"><img class="logo" src="/icons/icon-192.png?v=3" alt=""><h1>סיסמה חדשה</h1><p>נכנסת עם סיסמה זמנית. בוחרים עכשיו סיסמה קבועה.</p></div>
     <form class="auth-card glass" data-form="newpass"><label class="field"><span>סיסמה חדשה (לפחות 8 תווים)</span><input class="input" name="password" type="password" autocomplete="new-password" dir="ltr" minlength="8" required></label><p class="err" data-err></p><button class="btn block">שמירה</button></form>
   </section>`;
 }
