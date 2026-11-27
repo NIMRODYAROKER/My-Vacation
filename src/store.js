@@ -293,6 +293,7 @@ export class Store {
           if (act === 'delete') return this.deleteVacation(user, v);
           if (act === 'leave') return this.leaveVacation(user, v);
           if (act === 'invite') return this.invite(user, v, b, ip);
+          if (act === 'remove') return this.removeMember(user, v, b, ip);
           if (act === 'topics') return this.addTopic(user, v, b);
           if (act === 'items') return await this.addItem(user, v, request, ip, body);
           if (act === 'costs') return this.addCost(user, v, b);
@@ -496,6 +497,15 @@ export class Store {
   invite(user, v, b, ip) {
     this.mustLimit(`inv:${user.id}`, 60, 3600, ip);
     this.addInvites(user, v.id, b.friends);
+    return json({ ok: true });
+  }
+  removeMember(user, v, b, ip) {
+    if (v.owner_id !== user.id) { this.alert('remove-denied', `vacation ${v.id} by ${user.email}`, ip); fail(403, 'רק מנהל החופשה יכול להוציא חברים'); }
+    const uid = idParam(b.userId);
+    if (uid === user.id) fail(400, 'אי אפשר להוציא את עצמך');
+    if (!this.memberStatus(v.id, uid)) fail(404, 'החבר לא נמצא בחופשה');
+    // the member's documents and prices are kept (not deleted), only the membership is removed
+    this.run(`DELETE FROM members WHERE vacation_id=? AND user_id=?`, v.id, uid);
     return json({ ok: true });
   }
   respondInvite(user, vid, b) {

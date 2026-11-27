@@ -309,11 +309,13 @@ function viewVacation(d) {
     <div class="vhead">
       <h1 class="title">${esc(v.name)}</h1>
       <p class="sub">${esc([v.countries.join(', '), dateRange(v.start, v.end)].filter(Boolean).join(' · '))}${v.start && v.end ? ` · ${daysBetween(v.start, v.end)} לילות` : ''}</p>
+      <div class="vrow">
       <button class="people-row people-btn" data-act="go" data-h="#/v/${v.id}/people" aria-label="${v.group ? 'החברים בחופשה' : 'הזמנת חברים'}">${(v.group ? joined.slice(0, 5) : [S.me]).map(m => avatar(m, 'sm')).join('')}${v.group && joined.length > 5 ? `<span class="more">+${joined.length - 5}</span>` : ''}${v.group ? '' : `<span class="more">${icon('plus')}</span>`}</button>
-    </div>
-    <div class="iacts">
-      <button class="ia" data-act="go" data-h="#/v/${v.id}/costs">${icon('coins')}<b>מחירים</b></button>
-      <button class="ia" data-act="go" data-h="#/v/${v.id}/notes">${openNotes ? `<sup>${openNotes}</sup>` : ''}${icon('notes')}<b>הערות</b></button>
+      <div class="iacts">
+        <button class="ia" data-act="go" data-h="#/v/${v.id}/costs">${icon('coins')}<b>מחירים</b></button>
+        <button class="ia" data-act="go" data-h="#/v/${v.id}/notes">${openNotes ? `<sup>${openNotes}</sup>` : ''}${icon('notes')}<b>הערות</b></button>
+      </div>
+      </div>
     </div>
     ${v.group ? `<div class="seg dark" data-seg="filter" style="margin-top:16px"><span class="knob"></span>
       <button class="${S.filter === 'all' ? 'on' : ''}" data-act="filter" data-v="all">הכל</button>
@@ -435,7 +437,7 @@ function viewPeople(d) {
   return `<section class="page">
     <div class="top"><button class="back" data-act="go" data-h="#/v/${v.id}">${icon('back')}${esc(v.name)}</button></div>
     <h1 class="title">מי בחופשה</h1>
-    ${d.members.map(m => `<div class="person">${avatar(m, 'sm')}<span class="t"><b>${esc(m.name)}${m.id === S.me.id ? ' (אני)' : ''}</b><span>${m.status === 'invited' ? 'הוזמן, עוד לא אישר' : 'בחופשה'}</span></span></div>`).join('')}
+    ${d.members.map(m => `<div class="person">${avatar(m, 'sm')}<span class="t"><b>${esc(m.name)}${m.id === S.me.id ? ' (אני)' : ''}</b><span>${m.status === 'invited' ? 'הוזמן, עוד לא אישר' : 'בחופשה'}</span></span>${v.owner && m.id !== S.me.id ? `<button class="mini" data-act="m-remove" data-id="${m.id}" data-name="${esc(m.name)}">הוצאה</button>` : ''}</div>`).join('')}
     <p class="lbl">הזמנת חברים</p>
     ${canInvite.length ? `<div class="friendpick" style="justify-content:flex-start;margin-top:4px">${canInvite.map(f => `<button data-act="pick" data-id="${f.id}">${avatar(f, 'sm')}${esc(f.name)}</button>`).join('')}</div>
       <button class="btn block" style="margin-top:18px" data-act="invite">שליחת הזמנה</button>`
@@ -975,6 +977,11 @@ const actions = {
     if (!ids.length) return toast('בוחרים חברים להזמנה');
     const d = curVac();
     try { await api(`/vacations/${d.vacation.id}/invite`, { friends: ids }); await refreshVac(d.vacation.id); render(); toast('ההזמנה נשלחה'); } catch (ex) { toast(ex.message); }
+  },
+  'm-remove': async (el) => {
+    const d = curVac();
+    if (!(await confirmSheet('להוציא מהחופשה?', `${el.dataset.name} לא יראה יותר את החופשה. המסמכים והמחירים שלו נשמרים.`, 'הוצאה'))) return;
+    try { await api(`/vacations/${d.vacation.id}/remove`, { userId: el.dataset.id }); await refreshVac(d.vacation.id); S.list = null; render(); toast('הוצא מהחופשה'); } catch (ex) { toast(ex.message); }
   },
   'v-delete': async () => {
     const d = curVac();
